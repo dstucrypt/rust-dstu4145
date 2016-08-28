@@ -1,0 +1,7 @@
+[package]
+name = "rust-dstu4145"
+version = "0.1.0"
+authors = ["Illya Petrov <ilya.muromec@gmail.com>"]
+
+[dependencies]
+num = "*"
