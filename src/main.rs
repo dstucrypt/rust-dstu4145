@@ -28,6 +28,31 @@ fn test_dstu4145_sign_helper() {
     );
 }
 
+fn test_dstu4145_verify_helper() {
+    let curve_a = BigUint::zero();
+    let param_m: usize = 257;
+    let mod257 = gf2m::compute_modulus(param_m, 12, 0, 0);
+    let base_x = big(b"002A29EF207D0E9B6C55CD260B306C7E007AC491CA1B10C62334A9E8DCD8D20FB7");
+    let base_y = big(b"010686D41FF744D4449FCCF6D8EEA03102E6812C93A9D60B978B702CF156D814EF");
+    let order = big(b"800000000000000000000000000000006759213af182e987d3e17714907d470d");
+
+    let s = big(b"0CCC6816453A903A1B641DF999011177DF420D21A72236D798532AEF42E224AB");
+    let r = big(b"491FA1EF75EAEF75E1F20CF3918993AB37E06005EA8E204BC009A1FA61BB0FB2");
+	let to_be_signed = big(b"6845214B63288A832A772E1FE6CB6C7D3528569E29A8B3584370FDC65F474242");
+
+    let pub_x = big(b"aff3ee09cb429284985849e20de5742e194aa631490f62ba88702505629a6589");
+    let pub_y = big(b"1b345bc134f27da251edfae97b3f306b4e8b8cb9cf86d8651e4fb301ef8e1239c");
+
+    assert_eq!(
+        dstu4145::verify_helper(
+            &pub_x, &pub_y,
+            &s, &r, &to_be_signed,
+            &base_x, &base_y,
+            &order, &mod257, &curve_a),
+        true
+    );
+}
+
 fn big(bytes: &[u8])-> BigUint {
     return BigUint::parse_bytes(bytes, 16).unwrap();
 }
@@ -134,4 +159,5 @@ fn main () {
     test_point_mul();
 
     test_dstu4145_sign_helper();
+    test_dstu4145_verify_helper();
 }

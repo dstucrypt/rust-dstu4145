@@ -36,11 +36,11 @@ pub fn point_add(value_ax: &BigUint, value_ay: &BigUint,
                 &gf2m::add(value_ay, value_by),
                 &neg_abx,
             ),
-            &modulus
+            modulus
         );
         let temp_cx = gf2m::add(
             curve_a,
-            &gf2m::fmod(gf2m::mul(&lbd, &lbd), &modulus)
+            &gf2m::fmod(gf2m::mul(&lbd, &lbd), modulus)
         );
         let temp_cx = gf2m::add(&temp_cx, &lbd);
         let temp_cx = gf2m::add(&temp_cx, value_ax);
@@ -58,14 +58,14 @@ pub fn point_add(value_ax: &BigUint, value_ay: &BigUint,
             value_ax,
             &gf2m::fmod(
                 gf2m::mul(value_ay, &neg_ax),
-                &modulus
+                modulus
             )
         );
         let temp = gf2m::add(
             curve_a,
             &gf2m::fmod(
                 gf2m::mul(&lbd, &lbd),
-                &modulus
+                modulus
             )
         );
         value_cx = gf2m::add(&temp, &lbd);;
