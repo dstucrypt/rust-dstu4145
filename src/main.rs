@@ -1,37 +1,11 @@
 extern crate num;
 
 use num::{BigUint, Zero};
-use std::ops::{Add, Mul, Rem};
-use std::option::Option;
 
 mod gf2m;
 mod curve;
+mod dstu4145;
 
-
-fn dstu4145_sign_helper(priv_d: &BigUint, tbs: &BigUint, rand_e: BigUint,
-                        base_x: &BigUint, base_y: &BigUint,
-                        order: &BigUint, param_m: usize,
-                        modulus: &BigUint, curve_a: &BigUint)-> Option<(BigUint, BigUint)> {
-
-    let (pointg_x, _pointg_y) = curve::point_mul(base_x, base_y, &rand_e, modulus, curve_a);
-
-    if pointg_x.is_zero() {
-        return None;
-    }
-
-    let tbs = gf2m::truncate(tbs, param_m);
-    let r = gf2m::fmod(gf2m::mul(&tbs, &pointg_x), modulus);
-    let r = gf2m::truncate(&r, order.bits());
-    
-    if r.is_zero() {
-        return None;
-    }
-
-    let s = priv_d.mul(&r).rem(order);
-    let s = s.add(rand_e).rem(order);
-
-    return Some((s, r));
-}
 
 fn test_dstu4145_sign_helper() {
     let curve_a = BigUint::zero();
@@ -46,7 +20,7 @@ fn test_dstu4145_sign_helper() {
 	let rand_e = big(b"7A32849E569C8888F25DE6F69A839D75057383F473ACF559ABD3C5D683294CEB");
 
     assert_eq!(
-        dstu4145_sign_helper(&priv_d, &to_be_signed, rand_e, &base_x, &base_y, &order, param_m, &mod257, &curve_a).unwrap(),
+        dstu4145::sign_helper(&priv_d, &to_be_signed, rand_e, &base_x, &base_y, &order, param_m, &mod257, &curve_a).unwrap(),
         (
             big(b"0CCC6816453A903A1B641DF999011177DF420D21A72236D798532AEF42E224AB"),
             big(b"491FA1EF75EAEF75E1F20CF3918993AB37E06005EA8E204BC009A1FA61BB0FB2")
