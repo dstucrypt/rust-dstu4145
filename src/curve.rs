@@ -5,35 +5,58 @@ use std::ops::{BitAnd, Shl};
 
 use gf2m;
 
-pub fn infinity()-> (BigUint, BigUint) {
-    return (BigUint::zero(), BigUint::zero());
+#[derive(Clone, Debug, Hash)]
+pub struct Point {
+    pub x: BigUint,
+    pub y: BigUint,
+}
+
+impl PartialEq for Point {
+    #[inline]
+    fn eq(&self, other: &Point) -> bool {
+        return self.x.eq(&other.x) && self.y.eq(&other.y);
+    }
+}
+
+pub struct Curve {
+    pub param_a: BigUint,
+    pub order: BigUint,
+    pub base: Point,
+    pub field_m: usize,
+    pub field_k1: usize,
+    pub field_k2: usize,
+    pub field_k3: usize,
+    pub modulus: BigUint,
+}
+
+pub fn infinity()-> Point {
+    return Point {x: BigUint::zero(), y: BigUint::zero()};
 }
 
 pub fn at_infinity(value_x: &BigUint, value_y: &BigUint) -> bool {
     return value_x.is_zero() && value_y.is_zero();
 }
 
-pub fn point_add(value_ax: &BigUint, value_ay: &BigUint,
-                     value_bx: &BigUint, value_by: &BigUint,
-                     modulus: &BigUint,
-                     curve_a: &BigUint) -> (BigUint, BigUint) {
+pub fn point_add(point_a: &Point, point_b: &Point,
+                 modulus: &BigUint,
+                 curve_a: &BigUint) -> Point {
 
-    if at_infinity(value_ax, value_ay) {
-        return (value_bx.clone(), value_by.clone());
+    if at_infinity(&point_a.x, &point_a.y) {
+        return point_b.clone();
     }
 
-    if at_infinity(value_bx, value_by) {
-        return (value_ax.clone(), value_ay.clone());
+    if at_infinity(&point_b.x, &point_b.y) {
+        return point_a.clone();
     }
 
     let lbd;
     let value_cx;
 
-    if value_ax.eq(value_bx) == false {
-        let neg_abx = gf2m::neg(gf2m::add(value_ax, value_bx), modulus);
+    if point_a.x.eq(&point_b.x) == false {
+        let neg_abx = gf2m::neg(gf2m::add(&point_a.x, &point_b.x), modulus);
         lbd = gf2m::fmod(
             gf2m::mul(
-                &gf2m::add(value_ay, value_by),
+                &gf2m::add(&point_a.y, &point_b.y),
                 &neg_abx,
             ),
             modulus
@@ -43,21 +66,21 @@ pub fn point_add(value_ax: &BigUint, value_ay: &BigUint,
             &gf2m::fmod(gf2m::mul(&lbd, &lbd), modulus)
         );
         let temp_cx = gf2m::add(&temp_cx, &lbd);
-        let temp_cx = gf2m::add(&temp_cx, value_ax);
-        value_cx = gf2m::add(&temp_cx, value_bx);
+        let temp_cx = gf2m::add(&temp_cx, &point_a.x);
+        value_cx = gf2m::add(&temp_cx, &point_b.x);
     }
-    else if value_ay.eq(value_by) == false {
+    else if point_a.y.eq(&point_b.y) == false {
         return infinity();
     }
-    else if value_ax.is_zero() {
+    else if point_a.x.is_zero() {
         return infinity();
     }
     else {
-        let neg_ax = gf2m::neg(value_ax.clone(), modulus);
+        let neg_ax = gf2m::neg(point_a.x.clone(), modulus);
         lbd = gf2m::add(
-            value_ax,
+            &point_a.x,
             &gf2m::fmod(
-                gf2m::mul(value_ay, &neg_ax),
+                gf2m::mul(&point_a.y, &neg_ax),
                 modulus
             )
         );
@@ -72,49 +95,43 @@ pub fn point_add(value_ax: &BigUint, value_ay: &BigUint,
     }
 
     let value_cy = gf2m::fmod(
-        gf2m::mul(&gf2m::add(value_bx, &value_cx), &lbd),
+        gf2m::mul(&gf2m::add(&point_b.x, &value_cx), &lbd),
         modulus
     );
     let value_cy = gf2m::add(&value_cy, &value_cx);
-    let value_cy = gf2m::add(&value_cy, value_by);
+    let value_cy = gf2m::add(&value_cy, &point_b.y);
 
-    return (value_cx, value_cy);
+    return Point {x: value_cx, y: value_cy};
 }
 
 // FIXME: negative mul impossible
-pub fn point_mul(value_ax: &BigUint, value_ay: &BigUint,
-                     factor: &BigUint,
-                     modulus: &BigUint,
-                     curve_a: &BigUint) -> (BigUint, BigUint) {
+pub fn point_mul(point: &Point, factor: &BigUint,
+                 modulus: &BigUint,
+                 curve_a: &BigUint) -> Point {
 
     if factor.is_zero() {
-        return (BigUint::zero(), BigUint::zero());
+        return infinity();
     }
 
-    let mut value_x = BigUint::zero();
-    let mut value_y = BigUint::zero();
+    let mut value = infinity();
 	let mut j = factor.bits() as i32;
 
     while j >= 0 {
-        let (temp_x, temp_y) = point_add(
-            &value_x, &value_y, &value_x, &value_y,
+        value = point_add(
+            &value, &value,
             modulus, curve_a
         );
-        value_x = temp_x;
-        value_y = temp_y;
 
         let mask = BigUint::one().shl(j as usize);
         let test = factor.bitand(mask);
         if test.is_zero() == false {
-            let (temp_x, temp_y) = point_add(
-                &value_ax, &value_ay, &value_x, &value_y,
+            value = point_add(
+                point, &value,
                 modulus, curve_a
             );
-            value_x = temp_x;
-            value_y = temp_y;
         }
         j = j - 1;
     }
 
-    return (value_x, value_y);
+    return value;
 }

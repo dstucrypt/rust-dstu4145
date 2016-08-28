@@ -4,29 +4,31 @@ use std::option::Option;
 use std::cmp::Ordering::{Greater};
 
 use curve;
+use curve::Point;
 use gf2m;
 
 pub fn sign_helper(priv_d: &BigUint, tbs: &BigUint, rand_e: BigUint,
-                        base_x: &BigUint, base_y: &BigUint,
-                        order: &BigUint, param_m: usize,
-                        modulus: &BigUint, curve_a: &BigUint)-> Option<(BigUint, BigUint)> {
+                   curve: &curve::Curve) -> Option<(BigUint, BigUint)> {
 
-    let (pointg_x, _pointg_y) = curve::point_mul(base_x, base_y, &rand_e, modulus, curve_a);
+    let point_g = curve::point_mul(
+        &curve.base, &rand_e,
+        &curve.modulus, &curve.param_a
+    );
 
-    if pointg_x.is_zero() {
+    if point_g.x.is_zero() {
         return None;
     }
 
-    let tbs = gf2m::truncate(tbs, param_m);
-    let r = gf2m::fmod(gf2m::mul(&tbs, &pointg_x), modulus);
-    let r = gf2m::truncate(&r, order.bits());
+    let tbs = gf2m::truncate(tbs, curve.field_m);
+    let r = gf2m::fmod(gf2m::mul(&tbs, &point_g.x), &curve.modulus);
+    let r = gf2m::truncate(&r, curve.order.bits());
     
     if r.is_zero() {
         return None;
     }
 
-    let s = priv_d.mul(&r).rem(order);
-    let s = s.add(rand_e).rem(order);
+    let s = priv_d.mul(&r).rem(&curve.order);
+    let s = s.add(rand_e).rem(&curve.order);
 
     return Some((s, r));
 }
@@ -38,12 +40,10 @@ fn gt(lft: &BigUint, rgt: &BigUint) -> bool {
     };
 }
 
-pub fn verify_helper(public_x: &BigUint, public_y: &BigUint,
+pub fn verify_helper(public: &Point,
                      param_s: &BigUint, param_r: &BigUint,
                      tbs: &BigUint,
-                     base_x: &BigUint, base_y: &BigUint,
-                     order: &BigUint,
-                     modulus: &BigUint, curve_a: &BigUint) -> bool {
+                     curve: &curve::Curve) -> bool {
     if param_s.is_zero() {
         return false;
     }
@@ -52,24 +52,24 @@ pub fn verify_helper(public_x: &BigUint, public_y: &BigUint,
         return false;
     }
 
-    if gt(param_s, order) {
+    if gt(param_s, &curve.order) {
         return false;
     }
 
-    let (point_mulq_x, point_mulq_y) = curve::point_mul(public_x, public_y, &param_r, modulus, curve_a);
-    let (point_muls_x, point_muls_y) = curve::point_mul(base_x, base_y, &param_s, modulus, curve_a);
+    let point_mulq = curve::point_mul(public, &param_r, &curve.modulus, &curve.param_a);
+    let point_muls = curve::point_mul(&curve.base, &param_s, &curve.modulus, &curve.param_a);
 
-    let (pointr_x, pointr_y) = curve::point_add(&point_mulq_x, &point_mulq_y, &point_muls_x, &point_muls_y, modulus, curve_a);
+    let point_r = curve::point_add(&point_mulq, &point_muls, &curve.modulus, &curve.param_a);
 
-    if curve::at_infinity(&pointr_x, &pointr_y) {
+    if curve::at_infinity(&point_r.x, &point_r.y) {
         return false;
     }
 
     let compare_r = gf2m::fmod(
-        gf2m::mul(tbs, &pointr_x),
-        modulus
+        gf2m::mul(tbs, &point_r.x),
+        &curve.modulus
     );
-    let compare_r = gf2m::truncate(&compare_r, order.bits());
+    let compare_r = gf2m::truncate(&compare_r, curve.order.bits());
 
     return compare_r.eq(param_r);
 }
