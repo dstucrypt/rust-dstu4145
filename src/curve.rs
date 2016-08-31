@@ -1,7 +1,7 @@
 extern crate num;
 
 use num::{BigUint, One, Zero};
-use std::ops::{BitAnd, Shl};
+use std::ops::{BitAnd, BitOr, BitXor, Shl, Sub};
 
 use gf2m;
 
@@ -20,6 +20,7 @@ impl PartialEq for Point {
 
 pub struct Curve {
     pub param_a: BigUint,
+    pub param_b: BigUint,
     pub order: BigUint,
     pub base: Point,
     pub field_m: usize,
@@ -134,4 +135,52 @@ pub fn point_mul(point: &Point, factor: &BigUint,
     }
 
     return value;
+}
+
+pub fn point_expand(compressed: &BigUint, curve: &Curve)-> Point {
+
+    let mut value = compressed.clone();
+    if compressed.is_zero() {
+        let mulpb = gf2m::fmod(
+            gf2m::mul(&curve.param_b, &curve.param_b),
+            &curve.modulus
+        );
+        return Point {x: value, y: mulpb}
+    }
+    let k = BigUint::one().bitand(&value);
+
+    let mask = BigUint::one().shl(curve.field_m).sub(BigUint::from(2 as u8));
+    value = value.bitand(mask);
+
+    let trace = gf2m::trace(&value, &curve.modulus);
+    if (trace == 1 && curve.param_a.is_zero()) ||
+       (trace == 0 && !curve.param_a.is_zero()) {
+        value = value.bitor(BigUint::one());
+    }
+    let x2 = gf2m::fmod(gf2m::mul(&value, &value), &curve.modulus);
+    let mut y = gf2m::fmod(gf2m::mul(&x2, &value), &curve.modulus);
+
+    if !curve.param_a.is_zero() {
+        y = gf2m::add(&y, &x2);
+    }
+
+    y = gf2m::add(&y, &curve.param_b);
+    let invx2 = gf2m::neg(x2, &curve.modulus);
+    y = gf2m::fmod(gf2m::mul(&y, &invx2), &curve.modulus);
+
+    y = gf2m::fmod(
+        gf2m::squad_odd(&y, &curve.modulus, curve.field_m),
+        &curve.modulus
+    );
+
+    let trace_y = gf2m::trace(&y, &curve.modulus);
+
+    if (!k.is_zero() && trace_y == 0) ||
+       (k.is_zero() && trace_y == 1) {
+        y = y.bitxor(BigUint::one());
+    }
+
+    y = gf2m::fmod(gf2m::mul(&y, &value), &curve.modulus);
+
+    return Point {x: value, y: y};
 }

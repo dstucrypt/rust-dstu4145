@@ -55,6 +55,8 @@ fn big(bytes: &[u8])-> BigUint {
 fn test_compute_modulus () {
     let mod257 = gf2m::compute_modulus(257, 12, 0, 0);
     assert_eq!(mod257, big(b"20000000000000000000000000000000000000000000000000000000000001001"));
+    let mod431 = gf2m::compute_modulus(431, 5, 3, 1);
+    assert_eq!(mod431, big(b"80000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000002b"));
 }
 
 fn test_field_mod() {
@@ -147,7 +149,47 @@ fn test_point_add() {
             y: big(b"1e465ea7610428ec6b0b56be039dd73f3fe18d7d7731d60a18ff9224caaf43b76")
         }
     );
+}
 
+fn test_point_expand() {
+    let curve = dstu_params::curve_431();
+    let point_data: [u8; 54] = [
+        0xb6, 0x1b, 0xf9, 0xbd, 0x4b, 0x62, 0xca, 0xab,
+        0x2c, 0x39, 0x50, 0xf5, 0xc5, 0x1d, 0x5f, 0xa8,
+        0x0d, 0x70, 0x7e, 0x00, 0x7b, 0x52, 0x5b, 0x70,
+        0x67, 0x67, 0xdc, 0xe5, 0xcd, 0x1b, 0xaf, 0x6e,
+        0x27, 0x68, 0xda, 0xd0, 0xc6, 0xa8, 0x4f, 0xc2,
+        0x2f, 0x99, 0x05, 0x1d, 0x91, 0x34, 0x35, 0xf4,
+        0xeb, 0x1e, 0xb1, 0x9a, 0xd5, 0x44
+    ];
+
+    let point_compressed_x = BigUint::from_bytes_le(&point_data);
+    let point = curve::point_expand(&point_compressed_x, &curve);
+    assert_eq!(point, Point {
+        x: big(b"44d59ab11eebf43534911d05992fc24fa8c6d0da68276eaf1bcde5dc6767705b527b007e700da85f1dc5f550392cabca624bbdf91bb7"),
+        y: big(b"6edb5b3e38bf271233378ac0fe3990289007928f56beb38a4f63843b9995afdd88a09c7da6935a4b43b0afde65a4ca9c159d72ed5275"),
+    });
+}
+
+fn test_point_expand_even() {
+    let curve = dstu_params::curve_431();
+    let point_data: [u8; 54] = [
+        0xb7, 0x1b, 0xf9, 0xbd, 0x4b, 0x62, 0xca, 0xab,
+        0x2c, 0x39, 0x50, 0xf5, 0xc5, 0x1d, 0x5f, 0xa8,
+        0x0d, 0x70, 0x7e, 0x00, 0x7b, 0x52, 0x5b, 0x70,
+        0x67, 0x67, 0xdc, 0xe5, 0xcd, 0x1b, 0xaf, 0x6e,
+        0x27, 0x68, 0xda, 0xd0, 0xc6, 0xa8, 0x4f, 0xc2,
+        0x2f, 0x99, 0x05, 0x1d, 0x91, 0x34, 0x35, 0xf4,
+        0xeb, 0x1e, 0xb1, 0x9a, 0xd5, 0x44
+    ];
+
+    let point_compressed_x = BigUint::from_bytes_le(&point_data);
+    let point = curve::point_expand(&point_compressed_x, &curve);
+
+    assert_eq!(point, Point {
+        x: big(b"44d59ab11eebf43534911d05992fc24fa8c6d0da68276eaf1bcde5dc6767705b527b007e700da85f1dc5f550392cabca624bbdf91bb7"),
+        y: big(b"2a0ec18f2654d32707a697c56716526738c142553e99dd2554ae61e7fef2df86dadb9c03d69ef2145e755a8e5c88615677d6cf1449c2"),
+    });
 }
 
 fn main () {
@@ -159,6 +201,8 @@ fn main () {
     test_point_double();
     test_point_add();
     test_point_mul();
+    test_point_expand();
+    test_point_expand_even();
 
     test_dstu4145_sign_helper();
     test_dstu4145_verify_helper();

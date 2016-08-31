@@ -1,13 +1,13 @@
 extern crate num;
 
-use num::{BigUint, One, Zero};
+use num::{BigUint, One, Zero, ToPrimitive};
 use std::ops::{BitOr, BitAnd, BitXor, Shl};
 use std::cmp::Ordering::{Less};
 
 
 pub fn compute_modulus(p1: usize, k1: usize, k2: usize, k3: usize) -> BigUint {
     let one =  BigUint::one();
-    let modulus = one.shl(p1);
+    let modulus = BigUint::one().bitor(one.shl(p1));
     let modulus = modulus.bitor(BigUint::one().shl(k1));
     let modulus = modulus.bitor(BigUint::one().shl(k2));
     let modulus = modulus.bitor(BigUint::one().shl(k3));
@@ -85,4 +85,36 @@ pub fn truncate(value: &BigUint, size: usize) -> BigUint {
         result = add(&result, &one.shl(result.bits() - 1));
     }
     return result;
+}
+
+pub fn trace(value: &BigUint, modulus: &BigUint) -> u64 {
+    let mut result = value.clone();
+    let mut i = 1;
+    let bits = modulus.bits() - 1;
+    while i < bits {
+        result = fmod(mul(&result, &result), modulus);
+        result = add(&result, value);
+        i = i + 1;
+    }
+    return result.to_u64().unwrap();
+}
+
+pub fn squad_odd(value: &BigUint, modulus: &BigUint, field_m: usize) -> BigUint {
+    let val_a = fmod(value.clone(), modulus);
+    let mut val_z = val_a.clone();
+    let half_m = (field_m - 1) / 2;
+    let mut i = 1;
+
+    while i <= half_m {
+        val_z = fmod(mul(&val_z, &val_z), modulus);
+        val_z = fmod(mul(&val_z, &val_z), modulus);
+        val_z = add(&val_z, &val_a);
+        i = i + 1;
+    }
+
+    let val_w = add(&fmod(mul(&val_z, &val_z), modulus), &val_z);
+
+    assert_eq!(val_w, val_a);
+
+    return val_z;
 }
