@@ -1,7 +1,11 @@
 [package]
-name = "rust-dstu4145"
+name = "dstu4145"
 version = "0.1.0"
 authors = ["Illya Petrov <ilya.muromec@gmail.com>"]
+
+[lib]
+name = "dstu4145"
+path = "src/lib.rs"
 
 [dependencies]
 num = "*"
