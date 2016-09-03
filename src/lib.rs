@@ -112,7 +112,7 @@ mod test {
         };
 
         assert_eq!(
-            curve::point_add(&point, &point, &mod257, &curve_a),
+            curve::point_dbl(&point, &mod257, &curve_a),
             Point {
                 x: big(b"176dbde19773dfd335665597e8d6a0ab678721a5bb7030f25dc4c48b809ef3520"),
                 y: big(b"6e75301556ea5d571403086691030f024c026907c8e818b2eedd9184d12040ee")

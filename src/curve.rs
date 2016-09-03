@@ -50,6 +50,11 @@ pub fn point_add(point_a: &Point, point_b: &Point,
         return point_a.clone();
     }
 
+    /* Ref: https://hyperelliptic.org/EFD/g12o/auto-shortw-affine.html
+       lambda = (Y1+Y2)/(X1+X2)
+       X3 = lambda2+lambda+X1+X2+a2
+       Y3 = lambda*(X1+X3)+X3+Y1 */
+
     let lbd;
     let value_cx;
 
@@ -105,6 +110,49 @@ pub fn point_add(point_a: &Point, point_b: &Point,
     return Point {x: value_cx, y: value_cy};
 }
 
+pub fn point_dbl(point_a: &Point,
+                 modulus: &BigUint,
+                 curve_a: &BigUint) -> Point {
+
+    if at_infinity(&point_a.x, &point_a.y) {
+        return point_a.clone();
+    }
+
+    /* Ref: https://hyperelliptic.org/EFD/g12o/auto-shortw-affine.html
+       lambda = X1+Y1/X1
+       X3 = lambda2+lambda+a2
+       Y3 = lambda*(X1+X3)+X3+Y1 */
+
+    let lbd;
+    let value_cx;
+
+    let neg_ax = gf2m::neg(point_a.x.clone(), modulus);
+    lbd = gf2m::add(
+        &point_a.x,
+        &gf2m::fmod(
+            gf2m::mul(&point_a.y, &neg_ax),
+            modulus
+        )
+    );
+    let temp = gf2m::add(
+        curve_a,
+        &gf2m::fmod(
+            gf2m::sqr(&lbd),
+            modulus
+        )
+    );
+    value_cx = gf2m::add(&temp, &lbd);;
+
+    let value_cy = gf2m::fmod(
+        gf2m::mul(&gf2m::add(&point_a.x, &value_cx), &lbd),
+        modulus
+    );
+    let value_cy = gf2m::add(&value_cy, &value_cx);
+    let value_cy = gf2m::add(&value_cy, &point_a.y);
+
+    return Point {x: value_cx, y: value_cy};
+}
+
 // FIXME: negative mul impossible
 pub fn point_mul(point: &Point, factor: &BigUint,
                  modulus: &BigUint,
@@ -115,12 +163,11 @@ pub fn point_mul(point: &Point, factor: &BigUint,
     }
 
     let mut value = infinity();
-	let mut j = factor.bits() as i32;
+    let mut j = factor.bits() as i32;
 
     while j >= 0 {
-        value = point_add(
-            &value, &value,
-            modulus, curve_a
+        value = point_dbl(
+            &value, modulus, curve_a
         );
 
         let mask = BigUint::one().shl(j as usize);

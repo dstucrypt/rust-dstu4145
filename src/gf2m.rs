@@ -44,6 +44,10 @@ pub fn mul(value_a: &BigUint, value_b: &BigUint) -> BigUint {
     return result;
 }
 
+pub fn sqr(value: &BigUint) -> BigUint {
+    return mul(value, value);
+}
+
 pub fn neg(value: BigUint, modulus: &BigUint) -> BigUint {
     let mut b = BigUint::one();
     let mut c = BigUint::zero();
