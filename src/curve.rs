@@ -162,26 +162,33 @@ pub fn point_mul(point: &Point, factor: &BigUint,
         return infinity();
     }
 
-    let mut value = infinity();
     let mut j = factor.bits() as i32;
 
-    while j >= 0 {
-        value = point_dbl(
-            &value, modulus, curve_a
-        );
+    let mut point_r0 = infinity();
+    let mut point_r1 = point.clone();
 
+    while j >= 0 {
         let mask = BigUint::one().shl(j as usize);
         let test = factor.bitand(mask);
-        if test.is_zero() == false {
-            value = point_add(
-                point, &value,
+        if test.is_zero() {
+            point_r1 = point_add(
+                &point_r0, &point_r1,
                 modulus, curve_a
             );
+            point_r0 = point_dbl(&point_r0, modulus, curve_a);
+        }
+        else {
+            point_r0 = point_add(
+                &point_r0, &point_r1,
+                modulus, curve_a
+            );
+            point_r1 = point_dbl(&point_r1, modulus, curve_a);
+
         }
         j = j - 1;
     }
 
-    return value;
+    return point_r0;
 }
 
 pub fn point_expand(compressed: &BigUint, curve: &Curve)-> Point {
