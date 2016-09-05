@@ -6,6 +6,8 @@ use test::Bencher;
 
 use dstu4145::gf2m;
 use dstu4145::curve;
+use dstu4145::dstu_params;
+
 
 #[bench]
 fn bench_add(b: &mut Bencher) {
@@ -127,5 +129,27 @@ fn bench_point_mul(b: &mut Bencher) {
 
     b.iter(|| {
         curve::point_mul(&point, &privd, &mod257, &curve_a);
+    });
+}
+
+#[bench]
+fn bench_verify_sign(b: &mut Bencher) {
+    let curve = dstu_params::curve_257();
+
+    let s = gf2m::parse_hex(b"0CCC6816453A903A1B641DF999011177DF420D21A72236D798532AEF42E224AB");
+    let r = gf2m::parse_hex(b"491FA1EF75EAEF75E1F20CF3918993AB37E06005EA8E204BC009A1FA61BB0FB2");
+    let to_be_signed = gf2m::parse_hex(b"6845214B63288A832A772E1FE6CB6C7D3528569E29A8B3584370FDC65F474242");
+
+    let pubkey = curve::Point {
+        x: gf2m::parse_hex(b"aff3ee09cb429284985849e20de5742e194aa631490f62ba88702505629a6589"),
+        y: gf2m::parse_hex(b"1b345bc134f27da251edfae97b3f306b4e8b8cb9cf86d8651e4fb301ef8e1239c")
+    };
+
+    b.iter(|| {
+        dstu4145::verify_helper(
+            &pubkey,
+            &s, &r, &to_be_signed,
+            &curve
+        );
     });
 }

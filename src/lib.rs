@@ -3,6 +3,8 @@ pub mod curve;
 pub mod dstu4145;
 pub mod dstu_params;
 
+pub use dstu4145::verify_helper;
+
 #[cfg(test)]
 mod test {
     use curve::Point;
