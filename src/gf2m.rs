@@ -9,6 +9,7 @@ const FIELD_BYTES: usize = 64;
 const WORD_SIZE: usize = 32;
 
 pub type Field = [u32; FIELD_SIZE];
+pub type FieldMul = [u32; FIELD_SIZE * 2];
 pub type FieldBytes = [u8; FIELD_BYTES];
 
 pub fn compute_modulus(p1: usize, k1: usize, k2: usize, k3: usize) -> BigUint {
@@ -40,7 +41,8 @@ fn set_bit(words: &mut Field, bit: usize) {
     words[word] |= 1 << wbit;
 }
 
-fn has_bit(words: &Field, bit: usize)-> bool {
+#[inline]
+fn has_bit(words: &[u32], bit: usize)-> bool {
     let word = bit / WORD_SIZE;
     let wbit = bit % 32;
     return (words[word] & 1 << wbit) != 0;
@@ -71,17 +73,29 @@ pub fn fmod(value: BigUint, modulus: &BigUint) -> BigUint {
 // duh
 fn bit_size(value: &Field) -> usize {
     let mut size = (FIELD_SIZE * 32) - 1;
-    
+
     while size > 0 {
         if has_bit(value, size) {
-            return size;
+            return size + 1;
         }
         size -= 1;
     }
     return size;
 }
 
-pub fn shl(value: &Field, shift: usize) -> Field {
+fn bitl_size(value: &FieldMul) -> usize {
+    let mut size = (FIELD_SIZE * 2 * 32) - 1;
+
+    while size > 0 {
+        if has_bit(value, size) {
+            return size + 1;
+        }
+        size -= 1;
+    }
+    return size;
+}
+
+pub fn shll(value: &FieldMul, shift: usize) -> FieldMul {
     let word_shift = shift / WORD_SIZE;
     let bit_shift = shift % WORD_SIZE;
 
@@ -98,25 +112,36 @@ pub fn shl(value: &Field, shift: usize) -> Field {
     };
     let rbit_shift = WORD_SIZE - rbit_shift;
 
-    let mut ret: Field = [0; FIELD_SIZE];
+    let mut ret: FieldMul = [0; FIELD_SIZE * 2];
 
-    let last = FIELD_SIZE - word_shift - 1;
-    for i in 0..last {
-        ret[i] = (value[i + word_shift] << bit_shift) |
-                 rbit_mask & (value[i + word_shift + 1] >> rbit_shift);
+    let last = (FIELD_SIZE * 2) - word_shift;
+
+    ret[word_shift] = value[0] << bit_shift;
+    for i in 1..last {
+        ret[i + word_shift] = (value[i] << bit_shift) |
+                 rbit_mask & (value[i - 1] >> rbit_shift);
     }
-    ret[last] = value[last] << bit_shift;
     return ret;
 }
 
-pub fn reduce_bytes(value: &Field, modulus: &Field) -> Field {
+pub fn reduce_bytes(value: &FieldMul, modulus: &Field) -> Field {
     let mut ret = value.clone();
-
-    while bit_size(&ret) >= bit_size(modulus) {
-        let mask = shl(modulus, bit_size(&ret) - bit_size(modulus));
-        ret = add_bytes(&ret, &mask);
+    let mut ret_field: Field = [0; FIELD_SIZE];
+    let mut bigmodulus: FieldMul = [0; FIELD_SIZE * 2];
+    for i in 0..FIELD_SIZE {
+        bigmodulus[i] = modulus[i];
     }
-    return ret;
+
+    while bitl_size(&ret) >= bit_size(modulus) {
+        let mask = shll(&bigmodulus, bitl_size(&ret) - bit_size(modulus));
+        ret = addll_bytes(&ret, &mask);
+    }
+
+    for i in 0..FIELD_SIZE {
+        ret_field[i] = ret[i];
+    }
+
+    return ret_field;
 }
 
 pub fn mul(value_a: &BigUint, value_b: &BigUint) -> BigUint {
@@ -132,6 +157,22 @@ pub fn mul(value_a: &BigUint, value_b: &BigUint) -> BigUint {
         temp_b = temp_b.shl(1);
         j = j + 1;
     }
+    return result;
+}
+
+pub fn mul_bytes(value_a: &Field, value_b: &Field) -> FieldMul {
+    let mut result: FieldMul = [0; FIELD_SIZE * 2];
+    let mut one: Field = [0; FIELD_SIZE];
+    one[FIELD_SIZE - 1] = 1;
+
+    let mut temp_b = addl_bytes(&result, value_b);
+    for j in 0..bit_size(value_a) {
+        if has_bit(value_a, j) {
+            result = addll_bytes(&result, &temp_b);
+        }
+        temp_b = shll(&temp_b, 1);
+    }
+
     return result;
 }
 
@@ -176,6 +217,22 @@ pub fn add(value_a: &BigUint, value_b: &BigUint)-> BigUint {
 pub fn add_bytes(value_a: &Field, value_b: &Field) -> Field {
     let mut ret : Field = [0; FIELD_SIZE];
     for i in 0..FIELD_SIZE {
+        ret[i] = value_a[i] ^ value_b[i];
+    }
+    return ret;
+}
+
+pub fn addl_bytes(value_a: &FieldMul, value_b: &Field) -> FieldMul {
+    let mut ret = value_a.clone();
+    for i in 0..FIELD_SIZE {
+        ret[i] = value_a[i] ^ value_b[i];
+    }
+    return ret;
+}
+
+pub fn addll_bytes(value_a: &FieldMul, value_b: &FieldMul) -> FieldMul {
+    let mut ret = value_a.clone();
+    for i in 0..(FIELD_SIZE * 2) {
         ret[i] = value_a[i] ^ value_b[i];
     }
     return ret;

@@ -115,7 +115,7 @@ mod test {
     fn test_field_mod_bytes() {
         let mod257 = gf2m::compute_modulus_bytes(257, 12, 0, 0);
 
-        let value_a: [u32; 16] = [698767504, 2265075798, 2432052136, 2494194452, 3730260705, 2240060960, 3022596169, 4282310812, 10, 0, 0, 0, 0, 0, 0, 0];
+        let value_a: gf2m::FieldMul = [698767504, 2265075798, 2432052136, 2494194452, 3730260705, 2240060960, 3022596169, 4282310812, 10, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
         let expect: [u32; 16] = [698747029, 2265075798, 2432052136, 2494194452, 3730260705, 2240060960, 3022596169, 4282310812, 0, 0, 0, 0, 0, 0, 0, 0];
 
         assert_eq!(
@@ -126,28 +126,28 @@ mod test {
 
     #[test]
     fn test_field_shl_bytes() {
-        let value = [0x92468ACD; 16];
-        let shifted = gf2m::shl(&value, 8);
+        let value = [0x92468ACD; 32];
+        let shifted = gf2m::shll(&value, 8);
         let mut expect = [
-            0x468ACD92; 16
+            0x468ACD92; 32
         ];
-        expect[15] = 0x468ACD00;
+        expect[0] = 0x468ACD00;
         assert_eq!(shifted, expect);
     }
 
     #[test]
     fn test_field_shl_word_bytes() {
-        let value = [0x92468ACD; 16];
-        let shifted = gf2m::shl(&value, 132);
+        let value = [0x92468ACD; 32];
+        let shifted = gf2m::shll(&value, 132);
 
         let mut expect = [
-            0x2468ACD9; 16
+            0x2468ACD9; 32
         ];
-        expect[11] = 0x2468ACD0;
-        expect[12] = 0;
-        expect[13] = 0;
-        expect[14] = 0;
-        expect[15] = 0;
+        expect[4] = 0x2468ACD0;
+        expect[3] = 0;
+        expect[2] = 0;
+        expect[1] = 0;
+        expect[0] = 0;
 
         assert_eq!(shifted, expect);
     }
@@ -162,8 +162,27 @@ mod test {
             gf2m::fmod(gf2m::mul(&value_a, &value_b), &mod257),
             big(b"beb7d8390bb24fcf6882086cddd4ebe5270c1ed345bc516b40efb92b44530d5f")
         );
-
     }
+
+    #[test]
+    fn test_field_mul_bytes() {
+        let mod257 = gf2m::compute_modulus_bytes(257, 12, 0, 0);
+
+        let value_a: gf2m::Field = [698767504, 2265075798, 2432052136, 2494194452, 3730260705, 2240060960, 3022596169, 4282310812, 10, 0, 0, 0, 0, 0, 0, 0];
+        let value_b: gf2m::Field = [1676725451, 3278448259, 3660641287, 862752157, 1055426334, 2509227042, 1104553899, 865203955, 10, 0, 0, 0, 0, 0, 0, 0];
+
+        let expect: gf2m::Field = [1146293599, 1089452331, 1169969515, 655105747, 3721718757, 1753352300, 196235215, 3199719481, 0, 0, 0, 0, 0, 0, 0, 0];
+        gf2m::mul_bytes(&value_a, &value_b);
+
+        assert_eq!(
+            gf2m::reduce_bytes(
+                &gf2m::mul_bytes(&value_a, &value_b),
+                &mod257
+            ),
+            expect
+        );
+    }
+
 
     #[test]
     fn test_field_neg() {
