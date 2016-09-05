@@ -49,29 +49,65 @@ pub fn compute_modulus(p1: usize, k1: usize, k2: usize, k3: usize) -> Field {
     return modulus;
 }
 
-// duh
-pub fn bit_size(value: &Field) -> usize {
-    let mut size = (FIELD_SIZE * 32) - 1;
-
-    while size > 0 {
-        if has_bit(value, size) {
-            return size + 1;
-        }
-        size -= 1;
-    }
-    return size;
+#[inline]
+fn max(a: usize, b: usize)-> usize {
+    return if a > b {
+        a
+    } else {
+        b
+    };
 }
 
-fn bitl_size(value: &FieldMul) -> usize {
-    let mut size = (FIELD_SIZE * 2 * 32) - 1;
+static BIT_SIZE: [usize; 256] = [
+      0, 1, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4, 4, 4, 5, 5, 5, 5, 5, 5, 5, 5,
+      5, 5, 5, 5, 5, 5, 5, 5, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6,
+      6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 7, 7, 7, 7, 7, 7, 7, 7,
+      7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7,
+      7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7,
+      7, 7, 7, 7, 7, 7, 7, 7, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8,
+      8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8,
+      8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8,
+      8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8,
+      8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8,
+      8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8];
 
-    while size > 0 {
-        if has_bit(value, size) {
-            return size + 1;
-        }
-        size -= 1;
+#[inline]
+fn word_bits(value: u32) -> usize {
+    if (value & 0xffff0000) != 0 {
+      if (value & 0xff000000) != 0 {
+        return BIT_SIZE[(value >> 24) as usize] + 24;
+      } else {
+        return BIT_SIZE[(value >> 16) as usize] + 16;
+      }
+    } else {
+      if (value & 0xff00) != 0 {
+        return BIT_SIZE[(value >> 8) as usize] + 8;
+      } else {
+        return BIT_SIZE[value as usize];
+      }
     }
-    return size;
+}
+
+#[inline]
+pub fn bit_size(value: &[u32]) -> usize {
+    let mut max_word = 0;
+
+    for size in 0..value.len() {
+        let word = value[size];
+        let mask;
+        if word == 0 {
+            mask = 0;
+        }
+        else {
+            mask = 0xFF_FF;
+        }
+
+        max_word = max(max_word, mask & size);
+    }
+
+    let word = value[max_word];
+    let max_size = max_word << 5;
+    return max_size + word_bits(word);
 }
 
 pub fn shl(value: &Field, shift: usize) -> Field {
@@ -143,9 +179,11 @@ pub fn reduce(value: &[u32], modulus: &Field) -> Field {
         bigmodulus[i] = modulus[i];
     }
 
-    while bitl_size(&ret) >= bit_size(modulus) {
-        let mask = shll(&bigmodulus, bitl_size(&ret) - bit_size(modulus));
+    let mut size_difference = (bit_size(&ret) as i32) - (bit_size(modulus) as i32);
+    while size_difference >= 0 {
+        let mask = shll(&bigmodulus, size_difference as usize);
         ret = addll(&ret, &mask);
+        size_difference = (bit_size(&ret) as i32) - (bit_size(modulus) as i32);
     }
 
     for i in 0..FIELD_SIZE {

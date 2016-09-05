@@ -115,7 +115,6 @@ fn bench_point_add_same(b: &mut Bencher) {
 
 
 #[bench]
-#[ignore]
 fn bench_point_mul(b: &mut Bencher) {
     let mod257 = gf2m::compute_modulus(257, 12, 0, 0);
     let curve_a = gf2m::zero();
