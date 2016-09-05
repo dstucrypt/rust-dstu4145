@@ -200,14 +200,14 @@ pub fn point_expand(compressed: &Field, curve: &Curve)-> Point {
     value[0] = value[0] & 0xFF_FF_FF_FE;
 
     let trace = gf2m::trace(&value, &curve.modulus);
-    if (trace == 1 && gf2m::is_zero(&curve.param_a)) ||
-       (trace == 0 && !gf2m::is_zero(&curve.param_a)) {
+    if (trace == 1 && !gf2m::zero_one(&curve.param_a)) ||
+       (trace == 0 && gf2m::zero_one(&curve.param_a)) {
         value[0] = value[0] | 1;
     }
     let x2 = gf2m::reduce(&gf2m::mul(&value, &value), &curve.modulus);
     let mut y = gf2m::reduce(&gf2m::mul(&x2, &value), &curve.modulus);
 
-    if !gf2m::is_zero(&curve.param_a) {
+    if gf2m::zero_one(&curve.param_a) {
         y = gf2m::add(&y, &x2);
     }
 

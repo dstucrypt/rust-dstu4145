@@ -363,3 +363,7 @@ pub fn is_zero(value: &Field) -> bool {
     }
     return ret;
 }
+
+pub fn zero_one(value: &Field) -> bool {
+    return value[0] == 1;
+}
