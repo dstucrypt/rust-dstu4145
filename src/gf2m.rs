@@ -4,6 +4,12 @@ use num::{BigUint, One, Zero, ToPrimitive};
 use std::ops::{BitOr, BitAnd, BitXor, Shl};
 use std::cmp::Ordering::{Less};
 
+const FIELD_SIZE: usize = 16;
+const FIELD_BYTES: usize = 64;
+const WORD_SIZE: usize = 32;
+
+pub type Field = [u32; FIELD_SIZE];
+pub type FieldBytes = [u8; FIELD_BYTES];
 
 pub fn compute_modulus(p1: usize, k1: usize, k2: usize, k3: usize) -> BigUint {
     let one =  BigUint::one();
@@ -13,7 +19,41 @@ pub fn compute_modulus(p1: usize, k1: usize, k2: usize, k3: usize) -> BigUint {
     let modulus = modulus.bitor(BigUint::one().shl(k3));
 
     return modulus;
+}
 
+
+pub fn to_bytes_le(words: &Field) -> [u8; FIELD_BYTES] {
+    let mut ret = [0; FIELD_BYTES];
+    for x in 0..FIELD_SIZE {
+        ret[x * 4] = (words[x] & 0xFF) as u8;
+        ret[(x * 4) + 1] = ((words[x] >> 8) & 0xFF) as u8;
+        ret[(x * 4) + 2] = ((words[x] >> 16) & 0xFF) as u8;
+        ret[(x * 4) + 3] = ((words[x] >> 24) & 0xFF) as u8;
+    }
+    return ret;
+}
+
+#[inline]
+fn set_bit(words: &mut Field, bit: usize) {
+    let word = bit / WORD_SIZE;
+    let wbit = bit % 32;
+    words[word] |= 1 << wbit;
+}
+
+fn has_bit(words: &Field, bit: usize)-> bool {
+    let word = bit / WORD_SIZE;
+    let wbit = bit % 32;
+    return (words[word] & 1 << wbit) != 0;
+}
+
+pub fn compute_modulus_bytes(p1: usize, k1: usize, k2: usize, k3: usize) -> Field {
+    let mut modulus: Field = [0; FIELD_SIZE];
+    set_bit(&mut modulus, 0);
+    set_bit(&mut modulus, p1);
+    set_bit(&mut modulus, k1);
+    set_bit(&mut modulus, k2);
+    set_bit(&mut modulus, k3);
+    return modulus;
 }
 
 pub fn fmod(value: BigUint, modulus: &BigUint) -> BigUint {
@@ -26,6 +66,57 @@ pub fn fmod(value: BigUint, modulus: &BigUint) -> BigUint {
         value = value.bitxor(&mask);
     }
     return value;
+}
+
+// duh
+fn bit_size(value: &Field) -> usize {
+    let mut size = (FIELD_SIZE * 32) - 1;
+    
+    while size > 0 {
+        if has_bit(value, size) {
+            return size;
+        }
+        size -= 1;
+    }
+    return size;
+}
+
+pub fn shl(value: &Field, shift: usize) -> Field {
+    let word_shift = shift / WORD_SIZE;
+    let bit_shift = shift % WORD_SIZE;
+
+    let rbit_mask: u32 = if bit_shift > 0 {
+        0xFF_FF_FF_FF
+    } else {
+        0x0
+    };
+
+    let rbit_shift: usize = if bit_shift > 0 {
+        bit_shift
+    } else {
+        WORD_SIZE
+    };
+    let rbit_shift = WORD_SIZE - rbit_shift;
+
+    let mut ret: Field = [0; FIELD_SIZE];
+
+    let last = FIELD_SIZE - word_shift - 1;
+    for i in 0..last {
+        ret[i] = (value[i + word_shift] << bit_shift) |
+                 rbit_mask & (value[i + word_shift + 1] >> rbit_shift);
+    }
+    ret[last] = value[last] << bit_shift;
+    return ret;
+}
+
+pub fn reduce_bytes(value: &Field, modulus: &Field) -> Field {
+    let mut ret = value.clone();
+
+    while bit_size(&ret) >= bit_size(modulus) {
+        let mask = shl(modulus, bit_size(&ret) - bit_size(modulus));
+        ret = add_bytes(&ret, &mask);
+    }
+    return ret;
 }
 
 pub fn mul(value_a: &BigUint, value_b: &BigUint) -> BigUint {
@@ -80,6 +171,14 @@ pub fn neg(value: BigUint, modulus: &BigUint) -> BigUint {
 
 pub fn add(value_a: &BigUint, value_b: &BigUint)-> BigUint {
     return value_a.bitxor(value_b);
+}
+
+pub fn add_bytes(value_a: &Field, value_b: &Field) -> Field {
+    let mut ret : Field = [0; FIELD_SIZE];
+    for i in 0..FIELD_SIZE {
+        ret[i] = value_a[i] ^ value_b[i];
+    }
+    return ret;
 }
 
 pub fn truncate(value: &BigUint, size: usize) -> BigUint {

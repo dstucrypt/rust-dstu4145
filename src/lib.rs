@@ -14,6 +14,15 @@ mod test {
     use super::gf2m;
     use super::curve;
 
+    fn big(bytes: &[u8])-> BigUint {
+        return BigUint::parse_bytes(bytes, 16).unwrap();
+    }
+
+    fn bytes(words: &gf2m::Field) -> BigUint {
+        let bytes = gf2m::to_bytes_le(words);
+        return BigUint::from_bytes_le(&bytes);
+    }
+
     #[test]
     fn test_dstu4145_sign_helper() {
         let curve = dstu_params::curve_257();
@@ -54,9 +63,6 @@ mod test {
         );
     }
 
-    fn big(bytes: &[u8])-> BigUint {
-        return BigUint::parse_bytes(bytes, 16).unwrap();
-    }
 
     #[test]
     fn test_compute_modulus () {
@@ -66,6 +72,33 @@ mod test {
         assert_eq!(mod431, big(b"80000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000002b"));
     }
 
+    #[test]
+    fn test_compute_modulus_bytes() {
+        let mod257 = gf2m::compute_modulus_bytes(257, 12, 0, 0);
+        assert_eq!(bytes(&mod257), big(b"20000000000000000000000000000000000000000000000000000000000001001"));
+        let mod431 = gf2m::compute_modulus_bytes(431, 5, 3, 1);
+        assert_eq!(bytes(&mod431), big(b"80000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000002b"));
+    }
+
+    #[test]
+    fn test_field_add() {
+        let value_a = big(b"aff3ee09cb429284985849e20de5742e194aa631490f62ba88702505629a65890");
+        let value_b = big(b"a3391f6f341d627ab958fc4223ee8871e336c8d9dda30f407c369268363f0cccb");
+        let sum = gf2m::add(&value_a, &value_b);
+
+        assert_eq!(sum, big(b"ccaf166ff5ff0fe2100b5a02e0bfc5ffa7c6ee894ac6dfaf446b76d54a56945b"));
+    }
+
+    #[test]
+    fn test_field_add_bytes() {
+        let value_a = [698767504, 2265075798, 2432052136, 2494194452, 3730260705, 2240060960, 3022596169, 4282310812, 10, 0, 0, 0, 0, 0, 0, 0];
+        let value_b = [1676725451, 3278448259, 3660641287, 862752157, 1055426334, 2509227042, 1104553899, 865203955, 10, 0, 0, 0, 0, 0, 0, 0];
+		let expect = [1247188059, 1147893461, 1254547375, 2814832265, 3770664447, 269179394, 4127133666, 3434026607, 0, 0, 0, 0, 0, 0, 0, 0];
+
+        let sum = gf2m::add_bytes(&value_a, &value_b);
+
+        assert_eq!(sum, expect);
+    }
 
     #[test]
     fn test_field_mod() {
@@ -76,6 +109,47 @@ mod test {
             gf2m::fmod(value_a, &mod257),
             big(b"ff3ee09cb429284985849e20de5742e194aa631490f62ba88702505629a60895")
         );
+    }
+
+    #[test]
+    fn test_field_mod_bytes() {
+        let mod257 = gf2m::compute_modulus_bytes(257, 12, 0, 0);
+
+        let value_a: [u32; 16] = [698767504, 2265075798, 2432052136, 2494194452, 3730260705, 2240060960, 3022596169, 4282310812, 10, 0, 0, 0, 0, 0, 0, 0];
+        let expect: [u32; 16] = [698747029, 2265075798, 2432052136, 2494194452, 3730260705, 2240060960, 3022596169, 4282310812, 0, 0, 0, 0, 0, 0, 0, 0];
+
+        assert_eq!(
+            gf2m::reduce_bytes(&value_a, &mod257),
+			expect
+		);
+    }
+
+    #[test]
+    fn test_field_shl_bytes() {
+        let value = [0x92468ACD; 16];
+        let shifted = gf2m::shl(&value, 8);
+        let mut expect = [
+            0x468ACD92; 16
+        ];
+        expect[15] = 0x468ACD00;
+        assert_eq!(shifted, expect);
+    }
+
+    #[test]
+    fn test_field_shl_word_bytes() {
+        let value = [0x92468ACD; 16];
+        let shifted = gf2m::shl(&value, 132);
+
+        let mut expect = [
+            0x2468ACD9; 16
+        ];
+        expect[11] = 0x2468ACD0;
+        expect[12] = 0;
+        expect[13] = 0;
+        expect[14] = 0;
+        expect[15] = 0;
+
+        assert_eq!(shifted, expect);
     }
 
     #[test]
