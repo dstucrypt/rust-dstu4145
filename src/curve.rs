@@ -1,14 +1,10 @@
-extern crate num;
-
-use num::{BigUint, One, Zero};
-use std::ops::{BitAnd, BitOr, BitXor, Shl, Sub};
-
 use gf2m;
+use gf2m::Field;
 
 #[derive(Clone, Debug, Hash)]
 pub struct Point {
-    pub x: BigUint,
-    pub y: BigUint,
+    pub x: Field,
+    pub y: Field,
 }
 
 impl PartialEq for Point {
@@ -19,28 +15,28 @@ impl PartialEq for Point {
 }
 
 pub struct Curve {
-    pub param_a: BigUint,
-    pub param_b: BigUint,
-    pub order: BigUint,
+    pub param_a: Field,
+    pub param_b: Field,
+    pub order: Field,
     pub base: Point,
     pub field_m: usize,
     pub field_k1: usize,
     pub field_k2: usize,
     pub field_k3: usize,
-    pub modulus: BigUint,
+    pub modulus: Field,
 }
 
 pub fn infinity()-> Point {
-    return Point {x: BigUint::zero(), y: BigUint::zero()};
+    return Point {x: gf2m::zero(), y: gf2m::zero()};
 }
 
-pub fn at_infinity(value_x: &BigUint, value_y: &BigUint) -> bool {
-    return value_x.is_zero() && value_y.is_zero();
+pub fn at_infinity(value_x: &Field, value_y: &Field) -> bool {
+    return gf2m::is_zero(value_x) && gf2m::is_zero(value_y);
 }
 
 pub fn point_add(point_a: &Point, point_b: &Point,
-                 modulus: &BigUint,
-                 curve_a: &BigUint) -> Point {
+                 modulus: &Field,
+                 curve_a: &Field) -> Point {
 
     if at_infinity(&point_a.x, &point_a.y) {
         return point_b.clone();
@@ -59,9 +55,9 @@ pub fn point_add(point_a: &Point, point_b: &Point,
     let value_cx;
 
     if point_a.x.eq(&point_b.x) == false {
-        let neg_abx = gf2m::neg(gf2m::add(&point_a.x, &point_b.x), modulus);
-        lbd = gf2m::fmod(
-            gf2m::mul(
+        let neg_abx = gf2m::neg(&gf2m::add(&point_a.x, &point_b.x), modulus);
+        lbd = gf2m::reduce(
+            &gf2m::mul(
                 &gf2m::add(&point_a.y, &point_b.y),
                 &neg_abx,
             ),
@@ -69,7 +65,7 @@ pub fn point_add(point_a: &Point, point_b: &Point,
         );
         let temp_cx = gf2m::add(
             curve_a,
-            &gf2m::fmod(gf2m::mul(&lbd, &lbd), modulus)
+            &gf2m::reduce(&gf2m::mul(&lbd, &lbd), modulus)
         );
         let temp_cx = gf2m::add(&temp_cx, &lbd);
         let temp_cx = gf2m::add(&temp_cx, &point_a.x);
@@ -78,30 +74,30 @@ pub fn point_add(point_a: &Point, point_b: &Point,
     else if point_a.y.eq(&point_b.y) == false {
         return infinity();
     }
-    else if point_a.x.is_zero() {
+    else if gf2m::is_zero(&point_a.x) {
         return infinity();
     }
     else {
-        let neg_ax = gf2m::neg(point_a.x.clone(), modulus);
+        let neg_ax = gf2m::neg(&point_a.x, modulus);
         lbd = gf2m::add(
             &point_a.x,
-            &gf2m::fmod(
-                gf2m::mul(&point_a.y, &neg_ax),
+            &gf2m::reduce(
+                &gf2m::mul(&point_a.y, &neg_ax),
                 modulus
             )
         );
         let temp = gf2m::add(
             curve_a,
-            &gf2m::fmod(
-                gf2m::mul(&lbd, &lbd),
+            &gf2m::reduce(
+                &gf2m::mul(&lbd, &lbd),
                 modulus
             )
         );
         value_cx = gf2m::add(&temp, &lbd);;
     }
 
-    let value_cy = gf2m::fmod(
-        gf2m::mul(&gf2m::add(&point_b.x, &value_cx), &lbd),
+    let value_cy = gf2m::reduce(
+        &gf2m::mul(&gf2m::add(&point_b.x, &value_cx), &lbd),
         modulus
     );
     let value_cy = gf2m::add(&value_cy, &value_cx);
@@ -111,8 +107,8 @@ pub fn point_add(point_a: &Point, point_b: &Point,
 }
 
 pub fn point_dbl(point_a: &Point,
-                 modulus: &BigUint,
-                 curve_a: &BigUint) -> Point {
+                 modulus: &Field,
+                 curve_a: &Field) -> Point {
 
     if at_infinity(&point_a.x, &point_a.y) {
         return point_a.clone();
@@ -126,25 +122,25 @@ pub fn point_dbl(point_a: &Point,
     let lbd;
     let value_cx;
 
-    let neg_ax = gf2m::neg(point_a.x.clone(), modulus);
+    let neg_ax = gf2m::neg(&point_a.x, modulus);
     lbd = gf2m::add(
         &point_a.x,
-        &gf2m::fmod(
-            gf2m::mul(&point_a.y, &neg_ax),
+        &gf2m::reduce(
+            &gf2m::mul(&point_a.y, &neg_ax),
             modulus
         )
     );
     let temp = gf2m::add(
         curve_a,
-        &gf2m::fmod(
-            gf2m::sqr(&lbd),
+        &gf2m::reduce(
+            &gf2m::sqr(&lbd),
             modulus
         )
     );
     value_cx = gf2m::add(&temp, &lbd);;
 
-    let value_cy = gf2m::fmod(
-        gf2m::mul(&gf2m::add(&point_a.x, &value_cx), &lbd),
+    let value_cy = gf2m::reduce(
+        &gf2m::mul(&gf2m::add(&point_a.x, &value_cx), &lbd),
         modulus
     );
     let value_cy = gf2m::add(&value_cy, &value_cx);
@@ -154,36 +150,34 @@ pub fn point_dbl(point_a: &Point,
 }
 
 // FIXME: negative mul impossible
-pub fn point_mul(point: &Point, factor: &BigUint,
-                 modulus: &BigUint,
-                 curve_a: &BigUint) -> Point {
+pub fn point_mul(point: &Point, factor: &Field,
+                 modulus: &Field,
+                 curve_a: &Field) -> Point {
 
-    if factor.is_zero() {
+    if gf2m::is_zero(factor) {
         return infinity();
     }
 
-    let mut j = factor.bits() as i32;
+    let mut j = gf2m::bit_size(factor) as i32;
 
     let mut point_r0 = infinity();
     let mut point_r1 = point.clone();
 
     while j >= 0 {
-        let mask = BigUint::one().shl(j as usize);
-        let test = factor.bitand(mask);
-        if test.is_zero() {
+        if gf2m::has_bit(factor, j as usize) {
+             point_r0 = point_add(
+                &point_r0, &point_r1,
+                modulus, curve_a
+            );
+            point_r1 = point_dbl(&point_r1, modulus, curve_a);
+        }
+        else {
+
             point_r1 = point_add(
                 &point_r0, &point_r1,
                 modulus, curve_a
             );
             point_r0 = point_dbl(&point_r0, modulus, curve_a);
-        }
-        else {
-            point_r0 = point_add(
-                &point_r0, &point_r1,
-                modulus, curve_a
-            );
-            point_r1 = point_dbl(&point_r1, modulus, curve_a);
-
         }
         j = j - 1;
     }
@@ -191,50 +185,49 @@ pub fn point_mul(point: &Point, factor: &BigUint,
     return point_r0;
 }
 
-pub fn point_expand(compressed: &BigUint, curve: &Curve)-> Point {
+pub fn point_expand(compressed: &Field, curve: &Curve)-> Point {
 
     let mut value = compressed.clone();
-    if compressed.is_zero() {
-        let mulpb = gf2m::fmod(
-            gf2m::mul(&curve.param_b, &curve.param_b),
+    if gf2m::is_zero(compressed) {
+        let mulpb = gf2m::reduce(
+            &gf2m::mul(&curve.param_b, &curve.param_b),
             &curve.modulus
         );
         return Point {x: value, y: mulpb}
     }
-    let k = BigUint::one().bitand(&value);
+    let k = value[0] & 1;
 
-    let mask = BigUint::one().shl(curve.field_m).sub(BigUint::from(2 as u8));
-    value = value.bitand(mask);
+    value[0] = value[0] & 0xFF_FF_FF_FE;
 
     let trace = gf2m::trace(&value, &curve.modulus);
-    if (trace == 1 && curve.param_a.is_zero()) ||
-       (trace == 0 && !curve.param_a.is_zero()) {
-        value = value.bitor(BigUint::one());
+    if (trace == 1 && gf2m::is_zero(&curve.param_a)) ||
+       (trace == 0 && !gf2m::is_zero(&curve.param_a)) {
+        value[0] = value[0] | 1;
     }
-    let x2 = gf2m::fmod(gf2m::mul(&value, &value), &curve.modulus);
-    let mut y = gf2m::fmod(gf2m::mul(&x2, &value), &curve.modulus);
+    let x2 = gf2m::reduce(&gf2m::mul(&value, &value), &curve.modulus);
+    let mut y = gf2m::reduce(&gf2m::mul(&x2, &value), &curve.modulus);
 
-    if !curve.param_a.is_zero() {
+    if !gf2m::is_zero(&curve.param_a) {
         y = gf2m::add(&y, &x2);
     }
 
     y = gf2m::add(&y, &curve.param_b);
-    let invx2 = gf2m::neg(x2, &curve.modulus);
-    y = gf2m::fmod(gf2m::mul(&y, &invx2), &curve.modulus);
+    let invx2 = gf2m::neg(&x2, &curve.modulus);
+    y = gf2m::reduce(&gf2m::mul(&y, &invx2), &curve.modulus);
 
-    y = gf2m::fmod(
-        gf2m::squad_odd(&y, &curve.modulus, curve.field_m),
+    y = gf2m::reduce(
+        &gf2m::squad_odd(&y, &curve.modulus, curve.field_m),
         &curve.modulus
     );
 
     let trace_y = gf2m::trace(&y, &curve.modulus);
 
-    if (!k.is_zero() && trace_y == 0) ||
-       (k.is_zero() && trace_y == 1) {
-        y = y.bitxor(BigUint::one());
+    if (k == 1 && trace_y == 0) ||
+       (k == 0 && trace_y == 1) {
+        y[0] = y[0] ^ 1;
     }
 
-    y = gf2m::fmod(gf2m::mul(&y, &value), &curve.modulus);
+    y = gf2m::reduce(&gf2m::mul(&y, &value), &curve.modulus);
 
     return Point {x: value, y: y};
 }

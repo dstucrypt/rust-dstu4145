@@ -1,9 +1,3 @@
-extern crate num;
-
-use num::{BigUint, One, Zero, ToPrimitive};
-use std::ops::{BitOr, BitAnd, BitXor, Shl};
-use std::cmp::Ordering::{Less};
-
 const FIELD_SIZE: usize = 16;
 const FIELD_BYTES: usize = 64;
 const WORD_SIZE: usize = 32;
@@ -11,17 +5,6 @@ const WORD_SIZE: usize = 32;
 pub type Field = [u32; FIELD_SIZE];
 pub type FieldMul = [u32; FIELD_SIZE * 2];
 pub type FieldBytes = [u8; FIELD_BYTES];
-
-pub fn compute_modulus(p1: usize, k1: usize, k2: usize, k3: usize) -> BigUint {
-    let one =  BigUint::one();
-    let modulus = BigUint::one().bitor(one.shl(p1));
-    let modulus = modulus.bitor(BigUint::one().shl(k1));
-    let modulus = modulus.bitor(BigUint::one().shl(k2));
-    let modulus = modulus.bitor(BigUint::one().shl(k3));
-
-    return modulus;
-}
-
 
 pub fn to_bytes_le(words: &Field) -> [u8; FIELD_BYTES] {
     let mut ret = [0; FIELD_BYTES];
@@ -56,7 +39,7 @@ pub fn has_bit(words: &[u32], bit: usize)-> bool {
     return (words[word] & 1 << wbit) != 0;
 }
 
-pub fn compute_modulus_bytes(p1: usize, k1: usize, k2: usize, k3: usize) -> Field {
+pub fn compute_modulus(p1: usize, k1: usize, k2: usize, k3: usize) -> Field {
     let mut modulus: Field = [0; FIELD_SIZE];
     set_bit(&mut modulus, 0);
     set_bit(&mut modulus, p1);
@@ -64,18 +47,6 @@ pub fn compute_modulus_bytes(p1: usize, k1: usize, k2: usize, k3: usize) -> Fiel
     set_bit(&mut modulus, k2);
     set_bit(&mut modulus, k3);
     return modulus;
-}
-
-pub fn fmod(value: BigUint, modulus: &BigUint) -> BigUint {
-	let mut value = match value.cmp(modulus) {
-		Less => return value,
-        _ => value,
-	};
-    while value.bits() >= modulus.bits() {
-        let mask = modulus.shl(value.bits() - modulus.bits());
-        value = value.bitxor(&mask);
-    }
-    return value;
 }
 
 // duh
@@ -161,7 +132,7 @@ pub fn shll(value: &FieldMul, shift: usize) -> FieldMul {
     return ret;
 }
 
-pub fn reduce_bytes(value: &[u32], modulus: &Field) -> Field {
+pub fn reduce(value: &[u32], modulus: &Field) -> Field {
     let mut ret: FieldMul = [0; FIELD_SIZE * 2];
     for i in 0..value.len() {
         ret[i] = value[i];
@@ -174,7 +145,7 @@ pub fn reduce_bytes(value: &[u32], modulus: &Field) -> Field {
 
     while bitl_size(&ret) >= bit_size(modulus) {
         let mask = shll(&bigmodulus, bitl_size(&ret) - bit_size(modulus));
-        ret = addll_bytes(&ret, &mask);
+        ret = addll(&ret, &mask);
     }
 
     for i in 0..FIELD_SIZE {
@@ -184,31 +155,15 @@ pub fn reduce_bytes(value: &[u32], modulus: &Field) -> Field {
     return ret_field;
 }
 
-pub fn mul(value_a: &BigUint, value_b: &BigUint) -> BigUint {
-    let mut result = BigUint::zero();
-    let mut j = 0;
-    let mut temp_b = value_b.clone();
-    while j < value_a.bits() {
-        let mask = BigUint::one().shl(j);
-        let test = value_a.bitand(mask);
-        if test.is_zero() == false {
-            result = result.bitxor(&temp_b);
-        }
-        temp_b = temp_b.shl(1);
-        j = j + 1;
-    }
-    return result;
-}
-
-pub fn mul_bytes(value_a: &Field, value_b: &Field) -> FieldMul {
+pub fn mul(value_a: &Field, value_b: &Field) -> FieldMul {
     let mut result: FieldMul = [0; FIELD_SIZE * 2];
     let mut one: Field = [0; FIELD_SIZE];
     one[FIELD_SIZE - 1] = 1;
 
-    let mut temp_b = addl_bytes(&result, value_b);
+    let mut temp_b = addl(&result, value_b);
     for j in 0..bit_size(value_a) {
         if has_bit(value_a, j) {
-            result = addll_bytes(&result, &temp_b);
+            result = addll(&result, &temp_b);
         }
         temp_b = shll(&temp_b, 1);
     }
@@ -216,47 +171,14 @@ pub fn mul_bytes(value_a: &Field, value_b: &Field) -> FieldMul {
     return result;
 }
 
-pub fn sqr(value: &BigUint) -> BigUint {
+pub fn sqr(value: &Field) -> FieldMul {
     return mul(value, value);
 }
 
-pub fn sqr_bytes(value: &Field) -> FieldMul {
-    return mul_bytes(value, value);
-}
-
-pub fn neg(value: BigUint, modulus: &BigUint) -> BigUint {
-    let mut b = BigUint::one();
-    let mut c = BigUint::zero();
-    let mut u = fmod(value, modulus);
-    let mut v = modulus.clone();
-
-    while u.bits() > 1 {
-        let mut j: i32 = (u.bits() as i32) - (v.bits() as i32);
-
-        if j < 0 {
-            let temp = u;
-            u = v;
-            v = temp;
-
-            let temp = c;
-            c = b;
-            b = temp;
-
-            j = -j;
-        }
-        let ref vref = v;
-        let ref cref = c;
-        u = add(&u, &vref.shl(j as usize));
-        b = add(&b, &cref.shl(j as usize));
-    }
-
-    return b;
-}
-
-pub fn neg_bytes(value: &Field, modulus: &Field) -> Field {
+pub fn neg(value: &Field, modulus: &Field) -> Field {
     let mut b: Field = [0; FIELD_SIZE]; b[0] = 1;
     let mut c: Field = [0; FIELD_SIZE];
-    let mut u = reduce_bytes(value, modulus);
+    let mut u = reduce(value, modulus);
     let mut v = modulus.clone();
 
     let mut i = 0;
@@ -275,20 +197,15 @@ pub fn neg_bytes(value: &Field, modulus: &Field) -> Field {
 
             j = -j;
         }
-        u = add_bytes(&u, &shl(&v, j as usize));
-        b = add_bytes(&b, &shl(&c, j as usize));
+        u = add(&u, &shl(&v, j as usize));
+        b = add(&b, &shl(&c, j as usize));
 
         i = i + 1;
     }
     return b;
 }
 
-
-pub fn add(value_a: &BigUint, value_b: &BigUint)-> BigUint {
-    return value_a.bitxor(value_b);
-}
-
-pub fn add_bytes(value_a: &Field, value_b: &Field) -> Field {
+pub fn add(value_a: &Field, value_b: &Field) -> Field {
     let mut ret : Field = [0; FIELD_SIZE];
     for i in 0..FIELD_SIZE {
         ret[i] = value_a[i] ^ value_b[i];
@@ -296,7 +213,7 @@ pub fn add_bytes(value_a: &Field, value_b: &Field) -> Field {
     return ret;
 }
 
-pub fn addl_bytes(value_a: &FieldMul, value_b: &Field) -> FieldMul {
+pub fn addl(value_a: &FieldMul, value_b: &Field) -> FieldMul {
     let mut ret = value_a.clone();
     for i in 0..FIELD_SIZE {
         ret[i] = value_a[i] ^ value_b[i];
@@ -304,7 +221,7 @@ pub fn addl_bytes(value_a: &FieldMul, value_b: &Field) -> FieldMul {
     return ret;
 }
 
-pub fn addll_bytes(value_a: &FieldMul, value_b: &FieldMul) -> FieldMul {
+pub fn addll(value_a: &FieldMul, value_b: &FieldMul) -> FieldMul {
     let mut ret = value_a.clone();
     for i in 0..(FIELD_SIZE * 2) {
         ret[i] = value_a[i] ^ value_b[i];
@@ -312,73 +229,42 @@ pub fn addll_bytes(value_a: &FieldMul, value_b: &FieldMul) -> FieldMul {
     return ret;
 }
 
-pub fn truncate(value: &BigUint, size: usize) -> BigUint {
-    let one = &BigUint::one();
+pub fn truncate(value: &Field, size: usize) -> Field {
     let mut result = value.clone();
-    while size <= result.bits() {
-        result = add(&result, &one.shl(result.bits() - 1));
+    while size <= bit_size(&result) {
+        let mut mask = zero();
+        set_bit(&mut mask, bit_size(&result) - 1);
+        result = add(&result, &mask);
     }
     return result;
 }
 
-pub fn trace(value: &BigUint, modulus: &BigUint) -> u64 {
-    let mut result = value.clone();
-    let mut i = 1;
-    let bits = modulus.bits() - 1;
-    while i < bits {
-        result = fmod(mul(&result, &result), modulus);
-        result = add(&result, value);
-        i = i + 1;
-    }
-    return result.to_u64().unwrap();
-}
-
-pub fn trace_bytes(value: &Field, modulus: &Field) -> u32 {
+pub fn trace(value: &Field, modulus: &Field) -> u32 {
     let mut result = value.clone();
     let mut i = 1;
     let bits = bit_size(modulus) - 1;
     while i < bits {
-        result = reduce_bytes(&mul_bytes(&result, &result), modulus);
-        result = add_bytes(&result, value);
+        result = reduce(&mul(&result, &result), modulus);
+        result = add(&result, value);
         i = i + 1;
     }
     return result[0];
 }
 
-pub fn squad_odd(value: &BigUint, modulus: &BigUint, field_m: usize) -> BigUint {
-    let val_a = fmod(value.clone(), modulus);
+pub fn squad_odd(value: &Field, modulus: &Field, field_m: usize) -> Field {
+    let val_a = reduce(value, modulus);
     let mut val_z = val_a.clone();
     let half_m = (field_m - 1) / 2;
     let mut i = 1;
 
     while i <= half_m {
-        val_z = fmod(mul(&val_z, &val_z), modulus);
-        val_z = fmod(mul(&val_z, &val_z), modulus);
+        val_z = reduce(&mul(&val_z, &val_z), modulus);
+        val_z = reduce(&mul(&val_z, &val_z), modulus);
         val_z = add(&val_z, &val_a);
         i = i + 1;
     }
 
-    let val_w = add(&fmod(mul(&val_z, &val_z), modulus), &val_z);
-
-    assert_eq!(val_w, val_a);
-
-    return val_z;
-}
-
-pub fn squad_odd_bytes(value: &Field, modulus: &Field, field_m: usize) -> Field {
-    let val_a = reduce_bytes(value, modulus);
-    let mut val_z = val_a.clone();
-    let half_m = (field_m - 1) / 2;
-    let mut i = 1;
-
-    while i <= half_m {
-        val_z = reduce_bytes(&mul_bytes(&val_z, &val_z), modulus);
-        val_z = reduce_bytes(&mul_bytes(&val_z, &val_z), modulus);
-        val_z = add_bytes(&val_z, &val_a);
-        i = i + 1;
-    }
-
-    let val_w = add_bytes(&reduce_bytes(&mul_bytes(&val_z, &val_z), modulus), &val_z);
+    let val_w = add(&reduce(&mul(&val_z, &val_z), modulus), &val_z);
 
     assert_eq!(val_w, val_a);
 
