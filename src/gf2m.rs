@@ -193,7 +193,64 @@ pub fn reduce(value: &[u32], modulus: &Field) -> Field {
     return ret_field;
 }
 
+fn mul_1x1_u32 (a: u32, b: u32)-> (u32, u32) {
+    let top2b = a >> 30;
+
+    let a1 = a & (0x3FFFFFFF);
+    let a2 = a1 << 1;
+    let a4 = a2 << 1;
+
+    let tab  =  [
+        0, a1, a2, a1^a2,
+        a4, a1^a4, a2^a4, a1^a2^a4
+    ];
+
+    let mut s;
+    let mut l;
+    let mut h;
+    s = tab[(b       & 0x7) as usize]; l  = s;
+    s = tab[(b >>  3 & 0x7) as usize]; l ^= s <<  3; h  = s >> 29;
+    s = tab[(b >>  6 & 0x7) as usize]; l ^= s <<  6; h ^= s >> 26;
+    s = tab[(b >>  9 & 0x7) as usize]; l ^= s <<  9; h ^= s >> 23;
+    s = tab[(b >> 12 & 0x7) as usize]; l ^= s << 12; h ^= s >> 20;
+    s = tab[(b >> 15 & 0x7) as usize]; l ^= s << 15; h ^= s >> 17;
+    s = tab[(b >> 18 & 0x7) as usize]; l ^= s << 18; h ^= s >> 14;
+    s = tab[(b >> 21 & 0x7) as usize]; l ^= s << 21; h ^= s >> 11;
+    s = tab[(b >> 24 & 0x7) as usize]; l ^= s << 24; h ^= s >>  8;
+    s = tab[(b >> 27 & 0x7) as usize]; l ^= s << 27; h ^= s >>  5;
+    s = tab[(b >> 30) as usize];       l ^= s << 30; h ^= s >>  2;
+
+    let b30 = b << 30;
+    let b31 = b << 31;
+    let b2 = b >> 2;
+    let b1 = b >> 1;
+
+    let top = [
+        0, b30, b31, b30 ^ b31,
+        0, b2, b1, b2 ^ b1,
+    ];
+
+    l ^= top[top2b as usize];
+    h ^= top[(top2b | 0x4) as usize];
+
+    return (l, h);
+}
+
 pub fn mul(value_a: &Field, value_b: &Field) -> FieldMul {
+    let mut result: FieldMul = [0; FIELD_SIZE * 2];
+
+    for j in 0..FIELD_SIZE {
+        for i in 0..FIELD_SIZE {
+            let (l, h) = mul_1x1_u32(value_a[j], value_b[i]);
+            result[j+i] ^= l;
+            result[j+i + 1] ^= h;
+        }
+    }
+
+    return result;
+}
+
+pub fn mul_testbit(value_a: &Field, value_b: &Field) -> FieldMul {
     let mut result: FieldMul = [0; FIELD_SIZE * 2];
     let mut one: Field = [0; FIELD_SIZE];
     one[FIELD_SIZE - 1] = 1;

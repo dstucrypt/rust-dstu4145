@@ -10,7 +10,7 @@ use dstu4145::dstu_params;
 
 
 #[bench]
-fn bench_add(b: &mut Bencher) {
+fn bench_field_add(b: &mut Bencher) {
     let value_a = gf2m::parse_hex(b"aff3ee09cb429284985849e20de5742e194aa631490f62ba88702505629a65890");
     let value_b = gf2m::parse_hex(b"a3391f6f341d627ab958fc4223ee8871e336c8d9dda30f407c369268363f0cccb");
 
@@ -21,7 +21,7 @@ fn bench_add(b: &mut Bencher) {
 
 
 #[bench]
-fn bench_reduce(b: &mut Bencher) {
+fn bench_field_reduce(b: &mut Bencher) {
     let mod257 = gf2m::compute_modulus(257, 12, 0, 0);
     let value_a = gf2m::parse_hex(b"aff3ee09cb429284985849e20de5742e194aa631490f62ba88702505629a65890");
     let value_b = gf2m::parse_hex(b"a3391f6f341d627ab958fc4223ee8871e336c8d9dda30f407c369268363f0cccb");
@@ -35,7 +35,7 @@ fn bench_reduce(b: &mut Bencher) {
 
 
 #[bench]
-fn bench_reduce_2(b: &mut Bencher) {
+fn bench_field_reduce_2(b: &mut Bencher) {
     let mod257 = gf2m::compute_modulus(257, 12, 0, 0);
     let value_a = gf2m::parse_hex(b"aff3ee09cb429284985849e20de5742e194aa631490f62ba88702505629a65890");
 
@@ -45,7 +45,17 @@ fn bench_reduce_2(b: &mut Bencher) {
 }
 
 #[bench]
-fn bench_mul(b: &mut Bencher) {
+fn bench_field_mul(b: &mut Bencher) {
+    let value_a = gf2m::parse_hex(b"aff3ee09cb429284985849e20de5742e194aa631490f62ba88702505629a65890");
+    let value_b = gf2m::parse_hex(b"a3391f6f341d627ab958fc4223ee8871e336c8d9dda30f407c369268363f0cccb");
+
+    b.iter(|| {
+        gf2m::mul_testbit(&value_a, &value_b);
+    });
+}
+
+#[bench]
+fn bench_field_mul_1x1(b: &mut Bencher) {
     let value_a = gf2m::parse_hex(b"aff3ee09cb429284985849e20de5742e194aa631490f62ba88702505629a65890");
     let value_b = gf2m::parse_hex(b"a3391f6f341d627ab958fc4223ee8871e336c8d9dda30f407c369268363f0cccb");
 
@@ -55,7 +65,7 @@ fn bench_mul(b: &mut Bencher) {
 }
 
 #[bench]
-fn bench_neg(b: &mut Bencher) {
+fn bench_field_neg(b: &mut Bencher) {
     let mod257 = gf2m::compute_modulus(257, 12, 0, 0);
     let value_a = gf2m::parse_hex(b"aff3ee09cb429284985849e20de5742e194aa631490f62ba88702505629a65890");
 
