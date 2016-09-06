@@ -269,7 +269,7 @@ pub fn mul(value_a: &Field, value_b: &Field) -> FieldMul {
     let mut j = 0;
     let mut i;
 
-    while j < (FIELD_SIZE - 2) {
+    while j < FIELD_SIZE {
         i = 0;
         let y0 = value_b[j];
         let y1 = value_b[j + 1];
