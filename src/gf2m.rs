@@ -193,6 +193,7 @@ pub fn reduce(value: &[u32], modulus: &Field) -> Field {
     return ret_field;
 }
 
+#[inline]
 fn mul_1x1_u32 (a: u32, b: u32)-> (u32, u32) {
     let top2b = a >> 30;
 
@@ -236,7 +237,19 @@ fn mul_1x1_u32 (a: u32, b: u32)-> (u32, u32) {
     return (l, h);
 }
 
-pub fn mul(value_a: &Field, value_b: &Field) -> FieldMul {
+#[inline]
+fn mul_2x2_u32(a1: u32, a0: u32, b1: u32, b0: u32) -> (u32, u32, u32, u32) {
+
+    let (z0l, z0h) = mul_1x1_u32(a0, b0);
+    let (z1l, z1h) = mul_1x1_u32(a1, b1);
+    let (z2l, z2h) = mul_1x1_u32(a0 ^ a1, b0 ^ b1);
+
+    let z1l = z1l ^ z0h ^ z1h ^ z2h;
+    let z0h = z1h ^ z1l ^ z0l  ^ z2l ^ z2h;
+    return (z0l, z0h, z1l, z1h);
+}
+
+pub fn mul_1x1(value_a: &Field, value_b: &Field) -> FieldMul {
     let mut result: FieldMul = [0; FIELD_SIZE * 2];
 
     for j in 0..FIELD_SIZE {
@@ -245,6 +258,36 @@ pub fn mul(value_a: &Field, value_b: &Field) -> FieldMul {
             result[j+i] ^= l;
             result[j+i + 1] ^= h;
         }
+    }
+
+    return result;
+}
+
+pub fn mul(value_a: &Field, value_b: &Field) -> FieldMul {
+    let mut result: FieldMul = [0; FIELD_SIZE * 2];
+
+    let mut j = 0;
+    let mut i;
+
+    while j < (FIELD_SIZE - 2) {
+        i = 0;
+        let y0 = value_b[j];
+        let y1 = value_b[j + 1];
+
+        while i < FIELD_SIZE {
+            let x0 = value_a[i];
+            let x1 = value_a[i + 1];
+
+            let (l0, h0, l1, h1) = mul_2x2_u32(x1, x0, y1, y0);
+            result[j+i] ^= l0;
+            result[j+i + 1] ^= h0;
+            result[j+i + 2] ^= l1;
+            result[j+i + 3] ^= h1;
+
+            i+=2;
+        }
+
+        j += 2
     }
 
     return result;

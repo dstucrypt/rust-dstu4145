@@ -130,6 +130,18 @@ mod test {
         let value_b = gf2m::parse_hex(b"a3391f6f341d627ab958fc4223ee8871e336c8d9dda30f407c369268363f0cccb");
 
         assert_eq!(
+            gf2m::reduce(&gf2m::mul_1x1(&value_a, &value_b), &mod257),
+            gf2m::parse_hex(b"beb7d8390bb24fcf6882086cddd4ebe5270c1ed345bc516b40efb92b44530d5f")
+        );
+    }
+
+    #[test]
+    fn test_field_mul_2x2() {
+        let mod257 = gf2m::compute_modulus(257, 12, 0, 0);
+        let value_a = gf2m::parse_hex(b"aff3ee09cb429284985849e20de5742e194aa631490f62ba88702505629a65890");
+        let value_b = gf2m::parse_hex(b"a3391f6f341d627ab958fc4223ee8871e336c8d9dda30f407c369268363f0cccb");
+
+        assert_eq!(
             gf2m::reduce(&gf2m::mul(&value_a, &value_b), &mod257),
             gf2m::parse_hex(b"beb7d8390bb24fcf6882086cddd4ebe5270c1ed345bc516b40efb92b44530d5f")
         );

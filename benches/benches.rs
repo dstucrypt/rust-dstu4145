@@ -60,6 +60,16 @@ fn bench_field_mul_1x1(b: &mut Bencher) {
     let value_b = gf2m::parse_hex(b"a3391f6f341d627ab958fc4223ee8871e336c8d9dda30f407c369268363f0cccb");
 
     b.iter(|| {
+        gf2m::mul_1x1(&value_a, &value_b);
+    });
+}
+
+#[bench]
+fn bench_field_mul_2x2(b: &mut Bencher) {
+    let value_a = gf2m::parse_hex(b"aff3ee09cb429284985849e20de5742e194aa631490f62ba88702505629a65890");
+    let value_b = gf2m::parse_hex(b"a3391f6f341d627ab958fc4223ee8871e336c8d9dda30f407c369268363f0cccb");
+
+    b.iter(|| {
         gf2m::mul(&value_a, &value_b);
     });
 }
