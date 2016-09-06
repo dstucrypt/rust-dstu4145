@@ -6,6 +6,3 @@ authors = ["Illya Petrov <ilya.muromec@gmail.com>"]
 [lib]
 name = "dstu4145"
 path = "src/lib.rs"
-
-[dependencies]
-num = "*"
